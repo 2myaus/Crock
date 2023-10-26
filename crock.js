@@ -42,6 +42,60 @@ crock.Cave = class Cave{
             }
         });
     }
+    erodeBlocks(){
+        const waterDensity = 0.3;
+        const waterPoints = Math.floor(waterDensity * this.width * this.height);
+        let waterfiedGrid = [];
+        let waterSurfacePoints = [];
+        waterSurfacePoints.push([0, 0]);
+        
+        for(let i = 0; i < waterPoints; i++){
+            let weakestPoint = undefined;
+            waterSurfacePoints.forEach((wsp) => {
+                const connectingPoints = [
+                    [wsp[0] - 1, wsp[1]],
+                    [wsp[0] + 1, wsp[1]],
+                    [wsp[0], wsp[1] - 1],
+                    [wsp[0], wsp[1] + 1]
+                ];
+                connectingPoints.forEach((conPoint) => {
+                    if(waterfiedGrid[conPoint[0]]){
+                        if(waterfiedGrid[conPoint[0]][conPoint[1]]){
+                            return;
+                        }
+                    }
+                    if(!weakestPoint){
+                        weakestPoint = conPoint;
+                        return;
+                    }
+                    const weakestBlock = this.getBlock(weakestPoint[0], weakestPoint[1]);
+                    if((this.getBlock(conPoint[0], conPoint[1]).density < weakestBlock.density)){
+                        weakestPoint = conPoint;
+                    }
+                });
+            });
+            if(!waterfiedGrid[weakestPoint[0]]) waterfiedGrid[weakestPoint[0]] = [];
+            waterfiedGrid[weakestPoint[0]][weakestPoint[1]] = true;
+            const connectingPoints = [
+                [weakestPoint[0] - 1, weakestPoint[1]],
+                [weakestPoint[0] + 1, weakestPoint[1]],
+                [weakestPoint[0], weakestPoint[1] - 1],
+                [weakestPoint[0], weakestPoint[1] + 1]
+            ];
+            connectingPoints.forEach((conPoint) => {
+                if(waterfiedGrid[conPoint[0]]){
+                    if(waterfiedGrid[conPoint[0]][conPoint[1]]){
+                        return;
+                    }
+                }
+                waterSurfacePoints.push(weakestPoint);
+                if(!waterfiedGrid[conPoint[0]]){
+                    waterfiedGrid[conPoint[0]] = [];
+                }
+                waterfiedGrid[conPoint[0]][conPoint[1]] = true;
+            });
+        }
+    }
     getBlock(x, y){
         if(!this.grid[x]) return crock.emptyBlock;
         if(!this.grid[x][y]) return crock.emptyBlock;
