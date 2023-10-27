@@ -29,33 +29,53 @@ crock.Cave = class Cave{
         }
     }
     populateDensities(){
-        this.dPoints.forEach(dPoint => {
-            for(let dx = -Math.floor(dPoint.radius); dx < dPoint.radius; dx++){
+        for(let i = 0; i < this.dPoints.length; i++){
+            let dPoint = this.dPoints[i];
+            for(let dx = -Math.floor(dPoint.radius); dx < Math.ceil(dPoint.radius); dx++){
                 for(let dy = -Math.floor(dPoint.radius); dy < dPoint.radius; dy++){
                     const x = Math.floor(dPoint.x + dx);
                     const y = Math.floor(dPoint.y + dy);
                     let densityDif = (dPoint.radius - Math.sqrt(dx * dx + dy * dy)) / dPoint.radius;
                     if(densityDif < 0) densityDif = 0;
-                    const currentBlock = this.getBlock(x, y);
+                    /*const currentBlock = this.getBlock(x, y);
                     const newBlock = new crock.Block(currentBlock.density + densityDif);
-                    this.setBlock(x, y, newBlock);
+                    this.setBlock(x, y, newBlock);*/
+                    this.increaseBlockDensity(x, y, densityDif);
                 }
             }
-        });
+        }
     }
+    erodeBlocksFast(){
+        for(let x = 0; x < this.width; x++){
+            for(let y = 0; y < this.height; y++){
+                if(this.getBlock(x, y).density < 2){
+                    this.setBlock(x, y, crock.emptyBlock);
+                }
+            }
+        }
+    }  
     erodeBlocks(){
         const startTime = Date.now();
         const numErosionsPerStep = 10;
-        const waterDensity = 0.6;
-        const verticalBias = 0.001;
+        const waterDensity = 0.9;
+        const verticalBias = 0;
 
-        const waterPoints = Math.floor(waterDensity * this.width * this.height / numErosionsPerStep);
+        const waterPoints = Math.floor(waterDensity * this.width * this.height);
         let waterfiedGrid = [];
         let waterSurfacePoints = [];
         let waterSurfaceGrid = [];
 
         const addWaterSurfacePoint = (x, y) => {
-            waterSurfacePoints.push([x, y]);
+            const density = this.getBlock(x, y).density;
+            var idx = 0,
+                high = waterSurfacePoints.length;
+        
+            while (idx < high) {
+                var mid = (idx + high) >>> 1;
+                if (waterSurfacePoints[mid][2] < density) idx = mid + 1;
+                else high = mid;
+            }
+            waterSurfacePoints.splice(idx, 0, [x, y, density]);
             if(!waterSurfaceGrid[x]) waterSurfaceGrid[x] = [];
             waterSurfaceGrid[x][y] = true;
         }
@@ -65,7 +85,18 @@ crock.Cave = class Cave{
             waterSurfacePoints.splice(waterSurfacePoints.findIndex((point) => {return point[0] == x && point[1] == y}), 1);
             waterSurfaceGrid[x][y] = false;
         }
-
+        const removeWaterSurfacePointAtIdx = (idx) => {
+            const [x, y, _] = waterSurfacePoints[idx];
+            waterSurfacePoints.splice(idx, 1);
+            waterSurfaceGrid[x][y] = false;
+        }
+        const removeWaterSurfacePointsAtRange = (idx, num) => {
+            for(let i = 0; i < num; i++){
+                const [x, y, _] = waterSurfacePoints[idx + i];
+                waterSurfaceGrid[x][y] = false;
+            }
+            waterSurfacePoints.splice(idx, num);
+        }
         const getWaterSurfaceGrid = (x, y) => {
             return (waterSurfaceGrid[x] && waterSurfaceGrid[x][y])
         }
@@ -77,27 +108,17 @@ crock.Cave = class Cave{
         */
        addWaterSurfacePoint(Math.floor(this.width / 2), 0);
 
-        for(let i = 0; i < waterPoints; i++){
-            if(i % 1000 == 0){
+        for(let i = 0; i < waterPoints;){
+            /*if(i % 1000 == 0){
                 console.log("push "+i.toString()+" of "+waterPoints.toString()+" ("+(100*i/waterPoints)+"%)");
+            }*/
+            let startidx = waterSurfacePoints.length - numErosionsPerStep - 1;
+            const numIters = waterSurfacePoints.length - startidx;
+            if(startidx < 0){
+                startidx = 0;
             }
-            let weakestPoints = [];
-            waterSurfacePoints.forEach((wsp) => {
-                if(weakestPoints.length < numErosionsPerStep){
-                    weakestPoints.push(wsp);
-                }
-                else{
-                    const weakestPoint = weakestPoints[weakestPoints.length - 1];
-                    const weakestBlock = this.getBlock(weakestPoint[0], weakestPoint[1]);
-                    if(!((wsp[0] == weakestPoint[0]) && (wsp[1] == weakestPoint[1])) &&
-                    ((this.getBlock(wsp[0], wsp[1]).density - wsp[1] * verticalBias) < (weakestBlock.density - weakestPoint[1] * verticalBias))){
-                        weakestPoints.push(wsp);
-                        weakestPoints.shift();
-                    }
-                }
-            });
-            weakestPoints.forEach((wsp) => {
-                const [x, y] = wsp;
+            for(let pointsidx = startidx; pointsidx < waterSurfacePoints.length; pointsidx++){
+                const [x, y, _] = waterSurfacePoints[pointsidx];
 
                 const isWithinBounds = (x, y) => x >= 0 && x < this.width && y >= 0 && y < this.height;
                 const isUnoccupied = (x, y) => !waterfiedGrid[x] || !waterfiedGrid[x][y];
@@ -121,8 +142,9 @@ crock.Cave = class Cave{
                 if (!waterfiedGrid[x]) waterfiedGrid[x] = [];
                 waterfiedGrid[x][y] = true;
                 this.setBlock(x, y, crock.emptyBlock);
-                removeWaterSurfacePoint(wsp[0], wsp[1]);
-            });
+            }
+            removeWaterSurfacePointsAtRange(startidx, numIters);
+            i += numIters
         }
         const endTime = Date.now();
         const dTime = endTime - startTime;
@@ -148,17 +170,30 @@ crock.Cave = class Cave{
                     if(numNeighbors < 4){
                         this.setBlock(x, y, crock.emptyBlock);
                     }
+                    else if(numNeighbors > 4){
+                        this.setBlock(x, y, {density: 1});
+                    }
                 }
             }
         }
     }
     getBlock(x, y){
-        if(!this.grid[x]) return crock.emptyBlock;
-        if(!this.grid[x][y]) return crock.emptyBlock;
-        return this.grid[x][y];
+        if(this.grid[x] && this.grid[x][y]){
+            const block = this.grid[x][y];
+            if(block) return block;
+        }
+        return crock.emptyBlock;
     }
     setBlock(x, y, block){
         if(!this.grid[x]) this.grid[x] = [];
         this.grid[x][y] = block;
+    }
+    increaseBlockDensity(x, y, amount){
+        if(!this.grid[x]) this.grid[x] = [];
+        if(this.grid[x][y]){
+            this.grid[x][y].density += amount;
+            return;
+        }
+        this.grid[x][y] = {density: amount};
     }
 };
