@@ -15,32 +15,46 @@ crock.Cave = class Cave{
         this.width = width;
         this.height = height;
     }
-    populateDPoints(){
+    getDPoints(){
         const dPointFrequency = 0.02;
         const dPointAvgRadius = 10;
         const dPointAvgDeviation = 5;
 
-        this.dPoints = [];
+        let dPoints = [];
         for(let i = 0; i < this.width * this.height * dPointFrequency; i++){
             const x = Math.floor(Math.random() * this.width);
             const y = Math.floor(Math.random() * this.height);
             const rad = (Math.random() * 2 - 1) * dPointAvgDeviation + dPointAvgRadius;
-            this.dPoints[i] = {x: x, y: y, radius: rad};
+            dPoints[i] = {x: x, y: y, radius: rad};
         }
+        return dPoints;
     }
     populateDensities(){
-        for(let i = 0; i < this.dPoints.length; i++){
-            let dPoint = this.dPoints[i];
+        const dPoints = this.getDPoints();
+        for(let i = 0; i < dPoints.length; i++){
+            let dPoint = dPoints[i];
             for(let dx = -Math.floor(dPoint.radius); dx < Math.ceil(dPoint.radius); dx++){
                 for(let dy = -Math.floor(dPoint.radius); dy < dPoint.radius; dy++){
                     const x = Math.floor(dPoint.x + dx);
                     const y = Math.floor(dPoint.y + dy);
                     let densityDif = (dPoint.radius - Math.sqrt(dx * dx + dy * dy)) / dPoint.radius;
                     if(densityDif < 0) densityDif = 0;
-                    /*const currentBlock = this.getBlock(x, y);
-                    const newBlock = new crock.Block(currentBlock.density + densityDif);
-                    this.setBlock(x, y, newBlock);*/
                     this.increaseBlockDensity(x, y, densityDif);
+                }
+            }
+        }
+    }
+    populateMinerality(mineralName){
+        const dPoints = this.getDPoints();
+        for(let i = 0; i < dPoints.length; i++){
+            let dPoint = dPoints[i];
+            for(let dx = -Math.floor(dPoint.radius); dx < Math.ceil(dPoint.radius); dx++){
+                for(let dy = -Math.floor(dPoint.radius); dy < dPoint.radius; dy++){
+                    const x = Math.floor(dPoint.x + dx);
+                    const y = Math.floor(dPoint.y + dy);
+                    let densityDif = (dPoint.radius - Math.sqrt(dx * dx + dy * dy)) / dPoint.radius;
+                    if(densityDif < 0) densityDif = 0;
+                    this.increaseBlockMinerality(x, y, mineralName, densityDif);
                 }
             }
         }
@@ -195,5 +209,19 @@ crock.Cave = class Cave{
             return;
         }
         this.grid[x][y] = {density: amount};
+    }
+    increaseBlockMinerality(x, y, mineralName, amount){
+        if(!this.grid[x]) this.grid[x] = [];
+        if(this.grid[x][y]){
+            if(!this.grid[x][y][mineralName]){
+                this.grid[x][y][mineralName] = amount;
+            }
+            else{
+                this.grid[x][y][mineralName] += amount;
+            }
+            return;
+        }
+        this.grid[x][y] = {density: 0};
+        this.grid[x][y][mineralName] = amount;
     }
 };
