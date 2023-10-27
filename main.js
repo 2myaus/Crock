@@ -14,17 +14,21 @@ function drawDensities(){
 }
 
 function drawDensitySquares(){
-    ctx.clearRect(0, 0, 1000, 1000);
-    const cave = new crock.Cave(1000, 1000);
+    ctx.clearRect(0, 0, 500, 500);
+    const cave = new crock.Cave(500, 500);
     cave.populateDPoints();
     cave.populateDensities();
+    cave.erodeBlocks();
+    //cave.smoothBlocks();
     for(let x = 0; x < cave.width; x++){
         for(let y = 0; y < cave.height; y++){
             const block = cave.getBlock(x, y);
             let drawDensity = Math.floor((block.density / 5) * 255);
-            if(drawDensity > 255){drawDensity = 255};
-            ctx.fillStyle = "rgb("+drawDensity.toString()+", "+drawDensity.toString()+", "+drawDensity.toString()+")";
+            if(drawDensity > 0){drawDensity = 255};
+            ctx.fillStyle = "rgb("+Math.floor(drawDensity * 0.5).toString()+", "+Math.floor(drawDensity * 0.5).toString()+", "+drawDensity.toString()+")";
             ctx.fillRect(x, y, 1, 1);
         }
     }
 }
+
+drawDensitySquares();

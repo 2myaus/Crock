@@ -16,9 +16,10 @@ crock.Cave = class Cave{
         this.height = height;
     }
     populateDPoints(){
-        const dPointFrequency = 0.001;
-        const dPointAvgRadius = 30;
-        const dPointAvgDeviation = 10;
+        const dPointFrequency = 0.02;
+        const dPointAvgRadius = 10;
+        const dPointAvgDeviation = 5;
+
         this.dPoints = [];
         for(let i = 0; i < this.width * this.height * dPointFrequency; i++){
             const x = Math.floor(Math.random() * this.width);
@@ -43,57 +44,94 @@ crock.Cave = class Cave{
         });
     }
     erodeBlocks(){
+        const startTime = Date.now();
+        const numErosionsPerStep = 10;
         const waterDensity = 0.3;
-        const waterPoints = Math.floor(waterDensity * this.width * this.height);
+        const verticalBias = 0.001;
+
+        const waterPoints = Math.floor(waterDensity * this.width * this.height / numErosionsPerStep);
         let waterfiedGrid = [];
         let waterSurfacePoints = [];
-        waterSurfacePoints.push([0, 0]);
-        
+
+        for(let x = 0; x < this.width; x++){
+            waterSurfacePoints.push([x, 0]);
+        }
+
         for(let i = 0; i < waterPoints; i++){
-            let weakestPoint = undefined;
+            if(i % 1000 == 0){
+                console.log("push "+i.toString());
+            }
+            let weakestPoints = [];
             waterSurfacePoints.forEach((wsp) => {
-                const connectingPoints = [
-                    [wsp[0] - 1, wsp[1]],
-                    [wsp[0] + 1, wsp[1]],
-                    [wsp[0], wsp[1] - 1],
-                    [wsp[0], wsp[1] + 1]
-                ];
-                connectingPoints.forEach((conPoint) => {
-                    if(waterfiedGrid[conPoint[0]]){
-                        if(waterfiedGrid[conPoint[0]][conPoint[1]]){
-                            return;
-                        }
-                    }
-                    if(!weakestPoint){
-                        weakestPoint = conPoint;
-                        return;
-                    }
+                if(weakestPoints.length < numErosionsPerStep){
+                    weakestPoints.push(wsp);
+                }
+                else{
+                    const weakestPoint = weakestPoints[weakestPoints.length - 1];
                     const weakestBlock = this.getBlock(weakestPoint[0], weakestPoint[1]);
-                    if((this.getBlock(conPoint[0], conPoint[1]).density < weakestBlock.density)){
-                        weakestPoint = conPoint;
-                    }
-                });
-            });
-            if(!waterfiedGrid[weakestPoint[0]]) waterfiedGrid[weakestPoint[0]] = [];
-            waterfiedGrid[weakestPoint[0]][weakestPoint[1]] = true;
-            const connectingPoints = [
-                [weakestPoint[0] - 1, weakestPoint[1]],
-                [weakestPoint[0] + 1, weakestPoint[1]],
-                [weakestPoint[0], weakestPoint[1] - 1],
-                [weakestPoint[0], weakestPoint[1] + 1]
-            ];
-            connectingPoints.forEach((conPoint) => {
-                if(waterfiedGrid[conPoint[0]]){
-                    if(waterfiedGrid[conPoint[0]][conPoint[1]]){
-                        return;
+                    if(!((wsp[0] == weakestPoint[0]) && (wsp[1] == weakestPoint[1])) &&
+                    ((this.getBlock(wsp[0], wsp[1]).density - wsp[1] * verticalBias) < (weakestBlock.density - weakestPoint[1] * verticalBias))){
+                        weakestPoints.push(wsp);
+                        weakestPoints.shift();
                     }
                 }
-                waterSurfacePoints.push(weakestPoint);
-                if(!waterfiedGrid[conPoint[0]]){
-                    waterfiedGrid[conPoint[0]] = [];
-                }
-                waterfiedGrid[conPoint[0]][conPoint[1]] = true;
             });
+            weakestPoints.forEach((wsp) => {
+                const [x, y] = wsp;
+
+                const isWithinBounds = (x, y) => x >= 0 && x < this.width && y >= 0 && y < this.height;
+                const isUnoccupied = (x, y) => !waterfiedGrid[x] || !waterfiedGrid[x][y];
+
+                const isWaterSurface = (point) => waterSurfacePoints.some(([px, py]) => px === point[0] && py === point[1]);
+
+                const directions = [
+                    [-1, 0],
+                    [1, 0],
+                    [0, -1],
+                    [0, 1]
+                ];
+
+                for (const [dx, dy] of directions) {
+                    const newX = x + dx;
+                    const newY = y + dy;
+
+                    if (isWithinBounds(newX, newY) && isUnoccupied(newX, newY) && !isWaterSurface([newX, newY])) {
+                        waterSurfacePoints.push([newX, newY]);
+                    }
+                }
+
+                if (!waterfiedGrid[x]) waterfiedGrid[x] = [];
+                waterfiedGrid[x][y] = true;
+                this.setBlock(x, y, crock.emptyBlock);
+                waterSurfacePoints.splice(waterSurfacePoints.indexOf(wsp), 1);
+            });
+        }
+        const endTime = Date.now();
+        const dTime = endTime - startTime;
+        console.log("Took "+dTime+" ms");
+    }
+    smoothBlocks(){
+        const passes = 1;
+
+        for(let i = 0; i < passes; i++){
+            for(let x = 0; x < this.width; x++){
+                for(let y = 0; y < this.height; y++){
+                    let numNeighbors = 0;
+
+                    if(this.getBlock(x - 1, y - 1).density > 0) numNeighbors++;
+                    if(this.getBlock(x , y - 1).density > 0) numNeighbors++;
+                    if(this.getBlock(x + 1, y - 1).density > 0) numNeighbors++;
+                    if(this.getBlock(x - 1, y).density > 0) numNeighbors++;
+                    if(this.getBlock(x + 1, y).density > 0) numNeighbors++;
+                    if(this.getBlock(x - 1, y + 1).density > 0) numNeighbors++;
+                    if(this.getBlock(x, y + 1).density > 0) numNeighbors++;
+                    if(this.getBlock(x + 1, y + 1).density > 0) numNeighbors++;
+
+                    if(numNeighbors < 4){
+                        this.setBlock(x, y, crock.emptyBlock);
+                    }
+                }
+            }
         }
     }
     getBlock(x, y){
