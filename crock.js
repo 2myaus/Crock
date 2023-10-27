@@ -46,15 +46,32 @@ crock.Cave = class Cave{
     erodeBlocks(){
         const startTime = Date.now();
         const numErosionsPerStep = 10;
-        const waterDensity = 0.3;
+        const waterDensity = 0.6;
         const verticalBias = 0.001;
 
         const waterPoints = Math.floor(waterDensity * this.width * this.height / numErosionsPerStep);
         let waterfiedGrid = [];
         let waterSurfacePoints = [];
+        let waterSurfaceGrid = [];
+
+        const addWaterSurfacePoint = (x, y) => {
+            waterSurfacePoints.push([x, y]);
+            if(!waterSurfaceGrid[x]) waterSurfaceGrid[x] = [];
+            waterSurfaceGrid[x][y] = true;
+        }
+
+        const removeWaterSurfacePoint = (x, y) => {
+            if(!waterSurfaceGrid[x] || !waterSurfaceGrid[x][y]) return;
+            waterSurfacePoints.splice(waterSurfacePoints.findIndex((point) => {return point[0] == x && point[1] == y}), 1);
+            waterSurfaceGrid[x][y] = false;
+        }
+
+        const getWaterSurfaceGrid = (x, y) => {
+            return (waterSurfaceGrid[x] && waterSurfaceGrid[x][y])
+        }
 
         for(let x = 0; x < this.width; x++){
-            waterSurfacePoints.push([x, 0]);
+            addWaterSurfacePoint(x, 0);
         }
 
         for(let i = 0; i < waterPoints; i++){
@@ -82,28 +99,26 @@ crock.Cave = class Cave{
                 const isWithinBounds = (x, y) => x >= 0 && x < this.width && y >= 0 && y < this.height;
                 const isUnoccupied = (x, y) => !waterfiedGrid[x] || !waterfiedGrid[x][y];
 
-                const isWaterSurface = (point) => waterSurfacePoints.some(([px, py]) => px === point[0] && py === point[1]);
-
-                const directions = [
+                const pushDirections = [
                     [-1, 0],
                     [1, 0],
                     [0, -1],
                     [0, 1]
                 ];
 
-                for (const [dx, dy] of directions) {
+                for (const [dx, dy] of pushDirections) {
                     const newX = x + dx;
                     const newY = y + dy;
 
-                    if (isWithinBounds(newX, newY) && isUnoccupied(newX, newY) && !isWaterSurface([newX, newY])) {
-                        waterSurfacePoints.push([newX, newY]);
+                    if (isWithinBounds(newX, newY) && isUnoccupied(newX, newY) && !getWaterSurfaceGrid(newX, newY)) {
+                        addWaterSurfacePoint(newX, newY);
                     }
                 }
 
                 if (!waterfiedGrid[x]) waterfiedGrid[x] = [];
                 waterfiedGrid[x][y] = true;
                 this.setBlock(x, y, crock.emptyBlock);
-                waterSurfacePoints.splice(waterSurfacePoints.indexOf(wsp), 1);
+                removeWaterSurfacePoint(wsp[0], wsp[1]);
             });
         }
         const endTime = Date.now();
