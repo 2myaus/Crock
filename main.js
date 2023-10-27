@@ -25,10 +25,13 @@ function drawDensitySquares(){
 
     cave.smoothBlocks();
     console.log(`Smoothing took ${(Date.now() - lastTime)} ms`);
+    lastTime = Date.now();
 
     cave.populateMinerality("R");
     cave.populateMinerality("G");
     cave.populateMinerality("B");
+    console.log(`Minerals took ${(Date.now() - lastTime)} ms`);
+    lastTime = Date.now();
 
     for(let x = 0; x < cave.width; x++){
         for(let y = 0; y < cave.height; y++){
