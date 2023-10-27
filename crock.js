@@ -70,13 +70,16 @@ crock.Cave = class Cave{
             return (waterSurfaceGrid[x] && waterSurfaceGrid[x][y])
         }
 
+        /*
         for(let x = 0; x < this.width; x++){
             addWaterSurfacePoint(x, 0);
         }
+        */
+       addWaterSurfacePoint(Math.floor(this.width / 2), 0);
 
         for(let i = 0; i < waterPoints; i++){
             if(i % 1000 == 0){
-                console.log("push "+i.toString());
+                console.log("push "+i.toString()+" of "+waterPoints.toString()+" ("+(100*i/waterPoints)+"%)");
             }
             let weakestPoints = [];
             waterSurfacePoints.forEach((wsp) => {
