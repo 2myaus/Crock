@@ -67,102 +67,161 @@ crock.Cave = class Cave{
                 }
             }
         }
-    }  
+    }
     erodeBlocks(){
-        const startTime = Date.now();
-        const numErosionsPerStep = 10;
-        const waterDensity = 0.9;
-        const verticalBias = 0;
+        const waterDensity = 0.4;
 
         const waterPoints = Math.floor(waterDensity * this.width * this.height);
         let waterfiedGrid = [];
-        let waterSurfacePoints = [];
         let waterSurfaceGrid = [];
+
+        let waterSurfacePoints = []; //Binary tree
 
         const addWaterSurfacePoint = (x, y) => {
             const density = this.getBlock(x, y).density;
-            var idx = 0,
-                high = waterSurfacePoints.length;
-        
-            while (idx < high) {
-                var mid = (idx + high) >>> 1;
-                if (waterSurfacePoints[mid][2] < density) idx = mid + 1;
-                else high = mid;
+            let currentNode = waterSurfacePoints;
+            //Node structure: [left, [x, y, density], right]
+            while(true){
+                if(!currentNode) currentNode = [];
+                if(!currentNode[1]){
+                    if(currentNode[1] != 0){ //If an end node was found
+                        currentNode[1] = [x, y, density];
+                        break;
+                    }
+                    if(!currentNode[2]) currentNode[2] = [];
+                    currentNode = currentNode[2];
+                    continue;
+                }
+
+                if(density < currentNode[1][2]){
+                    if(!currentNode[0]) currentNode[0] = [];
+                    currentNode = currentNode[0];
+                    continue;
+                }
+
+                if(!currentNode[2]) currentNode[2] = [];
+                currentNode = currentNode[2];
+                continue;
             }
-            waterSurfacePoints.splice(idx, 0, [x, y, density]);
             if(!waterSurfaceGrid[x]) waterSurfaceGrid[x] = [];
             waterSurfaceGrid[x][y] = true;
         }
 
-        const removeWaterSurfacePoint = (x, y) => {
-            if(!waterSurfaceGrid[x] || !waterSurfaceGrid[x][y]) return;
-            waterSurfacePoints.splice(waterSurfacePoints.findIndex((point) => {return point[0] == x && point[1] == y}), 1);
-            waterSurfaceGrid[x][y] = false;
-        }
-        const removeWaterSurfacePointAtIdx = (idx) => {
-            const [x, y, _] = waterSurfacePoints[idx];
-            waterSurfacePoints.splice(idx, 1);
-            waterSurfaceGrid[x][y] = false;
-        }
-        const removeWaterSurfacePointsAtRange = (idx, num) => {
-            for(let i = 0; i < num; i++){
-                const [x, y, _] = waterSurfacePoints[idx + i];
-                waterSurfaceGrid[x][y] = false;
+        const removeLeastDenseSurfacePoints = (count) => {
+            let leftToRemove = count;
+            const removeRemaining = (node) => {
+                if(node[0][0]){
+                    removeRemaining(node[0]);
+                }
+                if(leftToRemove > 0){
+                    node[0] = node[0][2];
+                    leftToRemove--;
+                }
             }
-            waterSurfacePoints.splice(idx, num);
+            while(leftToRemove > 0){
+                if(waterSurfacePoints[0]){
+                    removeRemaining(waterSurfacePoints);
+                    continue;
+                }
+                waterSurfacePoints = waterSurfacePoints[2];
+                if(!waterSurfacePoints){
+                    waterSurfacePoints = [];
+                }
+                leftToRemove--;
+                continue;
+            }
         }
+
+        const forEachSurfacePoint = (surfacePoint, func) => {
+            if(surfacePoint[0]){
+                forEachSurfacePoint(surfacePoint[0]);
+            }
+            func(surfacePoint[1]);
+            if(surfacePoint[2]){
+                forEachSurfacePoint(surfacePoint[2]);
+            }
+        }
+
+        const forLeastDenseSurfacePoints = (surfacePoint, timesToExec, func) => {
+            let remainingTimes = timesToExec;
+            if(surfacePoint[0]){
+                remainingTimes = forLeastDenseSurfacePoints(surfacePoint[0], remainingTimes, func);
+            }
+            if(remainingTimes > 0){
+
+                if(!surfacePoint[1]) return remainingTimes;
+
+                func(surfacePoint[1]);
+                remainingTimes--;
+                if(remainingTimes > 0 && surfacePoint[2]){
+                    remainingTimes = forLeastDenseSurfacePoints(surfacePoint[2], remainingTimes, func);
+                }
+            }
+            return remainingTimes;
+        }
+
+        const getLeastDenseSurfacePoint = (surfacePoint) => {
+            if(surfacePoint[0]){
+                return getLeastDenseSurfacePoint(surfacePoint[0]);
+            }
+            return surfacePoint[1];
+        }
+
+        const removeLeastDenseSurfacePoint = (surfacePoint) => {
+            if(!surfacePoint[0] && surfacePoint == waterSurfacePoints){
+                waterSurfacePoints = waterSurfacePoints[2] || [];
+                return;
+            }
+            if(surfacePoint[0][0]){
+                removeLeastDenseSurfacePoint(surfacePoint[0]);
+                return;
+            }
+            surfacePoint[0] = surfacePoint[0][2];
+            return;
+        }
+
         const getWaterSurfaceGrid = (x, y) => {
             return (waterSurfaceGrid[x] && waterSurfaceGrid[x][y])
         }
 
-        /*
-        for(let x = 0; x < this.width; x++){
-            addWaterSurfacePoint(x, 0);
-        }
-        */
-       addWaterSurfacePoint(Math.floor(this.width / 2), 0);
+        const isWithinBounds = (x, y) => x >= 0 && x < this.width && y >= 0 && y < this.height;
+        const isNotWaterfied = (x, y) => !waterfiedGrid[x] || !waterfiedGrid[x][y];
 
-        for(let i = 0; i < waterPoints;){
-            /*if(i % 1000 == 0){
-                console.log("push "+i.toString()+" of "+waterPoints.toString()+" ("+(100*i/waterPoints)+"%)");
-            }*/
-            let startidx = waterSurfacePoints.length - numErosionsPerStep - 1;
-            const numIters = waterSurfacePoints.length - startidx;
-            if(startidx < 0){
-                startidx = 0;
-            }
-            for(let pointsidx = startidx; pointsidx < waterSurfacePoints.length; pointsidx++){
-                const [x, y, _] = waterSurfacePoints[pointsidx];
+        addWaterSurfacePoint(Math.floor(this.width / 2), 0);
 
-                const isWithinBounds = (x, y) => x >= 0 && x < this.width && y >= 0 && y < this.height;
-                const isUnoccupied = (x, y) => !waterfiedGrid[x] || !waterfiedGrid[x][y];
+        let pointsRemoved = 0;
 
-                const pushDirections = [
-                    [-1, 0],
-                    [1, 0],
-                    [0, -1],
-                    [0, 1]
-                ];
+        while(pointsRemoved < waterPoints){
 
-                for (const [dx, dy] of pushDirections) {
-                    const newX = x + dx;
-                    const newY = y + dy;
+            const [x, y, _] = getLeastDenseSurfacePoint(waterSurfacePoints);
+            removeLeastDenseSurfacePoint(waterSurfacePoints);
 
-                    if (isWithinBounds(newX, newY) && isUnoccupied(newX, newY) && !getWaterSurfaceGrid(newX, newY)) {
-                        addWaterSurfacePoint(newX, newY);
-                    }
+            const pushDirections = [
+                [0, 1],
+                [0, -1],
+                [-1, 0],
+                [1, 0]
+            ];
+
+            for (const [dx, dy] of pushDirections) {
+                const newX = x + dx;
+                const newY = y + dy;
+
+                if (isWithinBounds(newX, newY) && isNotWaterfied(newX, newY) && !getWaterSurfaceGrid(newX, newY)) {
+                    addWaterSurfacePoint(newX, newY);
                 }
-
-                if (!waterfiedGrid[x]) waterfiedGrid[x] = [];
-                waterfiedGrid[x][y] = true;
-                this.setBlock(x, y, crock.emptyBlock);
             }
-            removeWaterSurfacePointsAtRange(startidx, numIters);
-            i += numIters
+
+            if(!isNotWaterfied(x, y)){
+                console.log("Possible already removed block!");
+            }
+
+            if (!waterfiedGrid[x]) waterfiedGrid[x] = [];
+            waterfiedGrid[x][y] = true;
+            this.setBlock(x, y, crock.emptyBlock);
+
+            pointsRemoved++;
         }
-        const endTime = Date.now();
-        const dTime = endTime - startTime;
-        console.log("Took "+dTime+" ms");
     }
     smoothBlocks(){
         const passes = 1;
@@ -183,9 +242,6 @@ crock.Cave = class Cave{
 
                     if(numNeighbors < 4){
                         this.setBlock(x, y, crock.emptyBlock);
-                    }
-                    else if(numNeighbors > 4){
-                        this.setBlock(x, y, {density: 1});
                     }
                 }
             }

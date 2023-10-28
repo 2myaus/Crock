@@ -23,34 +23,25 @@ function drawDensitySquares(){
     console.log(`Erosion took ${(Date.now() - lastTime)} ms`);
     lastTime = Date.now();
 
-    cave.smoothBlocks();
-    console.log(`Smoothing took ${(Date.now() - lastTime)} ms`);
-    lastTime = Date.now();
-
     cave.populateMinerality("R");
     cave.populateMinerality("G");
     cave.populateMinerality("B");
     console.log(`Minerals took ${(Date.now() - lastTime)} ms`);
     lastTime = Date.now();
 
+    cave.smoothBlocks();
+    console.log(`Smoothing took ${(Date.now() - lastTime)} ms`);
+    lastTime = Date.now();
+
     for(let x = 0; x < cave.width; x++){
         for(let y = 0; y < cave.height; y++){
             const block = cave.getBlock(x, y);
-            let drawDensity = Math.floor((block.density / 5) * 255);
+            let drawDensity = Math.floor((block.density * 255 / 5));
 
-            let r = 0;
-            let g = 0;
-            let b = 0;
+            let r = block["R"] || 1;
+            let g = block["G"] || 1;
+            let b = block["B"] || 1;
 
-            if(block["R"]){
-                r = block["R"];
-            }
-            if(block["G"]){
-                g = block["G"];
-            }
-            if(block["B"]){
-                b = block["B"];
-            }
             r *= drawDensity;
             g *= drawDensity;
             b *= drawDensity;
@@ -58,7 +49,7 @@ function drawDensitySquares(){
             r = Math.floor(r);
             g = Math.floor(g);
             b = Math.floor(b);
-            
+
             if(r > 255) r = 255;
             if(g > 255) g = 255;
             if(b > 255) b = 255;
@@ -69,6 +60,7 @@ function drawDensitySquares(){
     }
     const dTime = Date.now() - startTime;
     console.log(`Finished! Took ${dTime}ms (${(dTime * 1000 / (width * height))}ms per 1000 pixels)`);
+
 }
 
 document.getElementById("drawButton").onclick = drawDensitySquares;
